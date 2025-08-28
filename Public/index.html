@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC Video App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <h1>📹 WebRTC Video Call</h1>
+
+  <div class="video-container">
+    <video id="local-video" autoplay muted></video>
+    <video id="recording-video" controls></video>
+  </div>
+
+  <div class="controls">
+    <button id="toggle-video">Toggle Video</button>
+    <button id="toggle-record">Start Recording</button>
+  </div>
+
+  <div class="timer">
+    ⏱ Time: <span id="timer">00:00</span>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
