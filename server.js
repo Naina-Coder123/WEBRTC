@@ -7,29 +7,60 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Serve static files (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, "public")));
 
-// WebSocket signaling
-wss.on("connection", (ws) => {
-  console.log("New client connected");
+const rooms = {};
 
-  ws.on("message", (message) => {
-    console.log("Received:", message.toString());
+wss.on("connection", ws => {
+  let currentRoom = null;
 
-    // Broadcast to all other clients
-    wss.clients.forEach((client) => {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message.toString());
+  ws.on("message", msg => {
+    const data = JSON.parse(msg);
+
+    if (data.type === "join") {
+      const roomId = data.room;
+      currentRoom = roomId;
+
+      if (!rooms[roomId]) rooms[roomId] = [];
+      if (rooms[roomId].length >= 2) {
+        ws.send(JSON.stringify({ type: "full" }));
+        return;
       }
-    });
+
+      rooms[roomId].push(ws);
+
+      // Notify other participant
+      rooms[roomId].forEach(client => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: "join" }));
+        }
+      });
+      return;
+    }
+
+    // Relay signaling
+    if (currentRoom && rooms[currentRoom]) {
+      rooms[currentRoom].forEach(client => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(data));
+        }
+      });
+    }
   });
 
-  ws.on("close", () => console.log("Client disconnected"));
+  ws.on("close", () => {
+    if (currentRoom && rooms[currentRoom]) {
+      rooms[currentRoom] = rooms[currentRoom].filter(c => c !== ws);
+      if (rooms[currentRoom].length === 0) delete rooms[currentRoom];
+
+      rooms[currentRoom]?.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: "leave" }));
+        }
+      });
+    }
+  });
 });
 
-// Start server
-const PORT = 3000;
-server.listen(PORT, () => {
-  console.log(`✅ Server running: http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
