@@ -1,3 +1,4 @@
+// server.js
 const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
@@ -7,81 +8,80 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// serve static files from Public/
-app.use(express.static(path.join(__dirname, "Public")));
+// Serve frontend files from the 'public' folder
+app.use(express.static(path.join(__dirname, "public")));
 
+// Simple in-memory rooms map: { roomId: [ws, ...] }
 const rooms = {};
 
-// handle websocket connections
-wss.on("connection", ws => {
+wss.on("connection", (ws) => {
   let currentRoom = null;
 
-  ws.on("message", message => {
+  ws.on("message", (raw) => {
     let data;
     try {
-      data = JSON.parse(message);
+      data = JSON.parse(raw);
     } catch (err) {
-      console.error("Invalid JSON:", err);
+      console.error("Bad JSON:", err);
       return;
     }
 
-    switch (data.type) {
-      case "join":
-        currentRoom = data.room;
-        if (!rooms[currentRoom]) rooms[currentRoom] = [];
+    const { type } = data;
 
-        // Allow max 2 people per room
-        if (rooms[currentRoom].length >= 2) {
-          ws.send(JSON.stringify({ type: "full" }));
-          return;
+    if (type === "join") {
+      const room = (data.room || "").trim();
+      if (!room) {
+        ws.send(JSON.stringify({ type: "error", message: "missing room" }));
+        return;
+      }
+      currentRoom = room;
+      if (!rooms[room]) rooms[room] = [];
+
+      // limit to 2 participants
+      if (rooms[room].length >= 2) {
+        ws.send(JSON.stringify({ type: "full" }));
+        return;
+      }
+
+      rooms[room].push(ws);
+      ws.send(JSON.stringify({ type: "joined", room, peers: rooms[room].length }));
+
+      // If now two peers in room, tell the first peer to initiate (create offer).
+      if (rooms[room].length === 2) {
+        const [first, second] = rooms[room];
+        if (first.readyState === WebSocket.OPEN) first.send(JSON.stringify({ type: "initiate" }));
+        if (second.readyState === WebSocket.OPEN) second.send(JSON.stringify({ type: "ready" }));
+      }
+      return;
+    }
+
+    // Relay signaling messages (offer/answer/candidate) to other peer(s) in same room
+    if (["offer", "answer", "candidate"].includes(type)) {
+      if (!currentRoom || !rooms[currentRoom]) return;
+      rooms[currentRoom].forEach((client) => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(data));
         }
-
-        rooms[currentRoom].push(ws);
-
-        // Notify the other peer someone joined
-        rooms[currentRoom].forEach(client => {
-          if (client !== ws && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: "join" }));
-          }
-        });
-        break;
-
-      case "offer":
-      case "answer":
-      case "candidate":
-        if (currentRoom && rooms[currentRoom]) {
-          rooms[currentRoom].forEach(client => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify(data));
-            }
-          });
-        }
-        break;
-
-      default:
-        console.log("Unknown message type:", data.type);
+      });
+      return;
     }
   });
 
   ws.on("close", () => {
-    if (currentRoom && rooms[currentRoom]) {
-      rooms[currentRoom] = rooms[currentRoom].filter(c => c !== ws);
-
-      if (rooms[currentRoom].length === 0) {
-        delete rooms[currentRoom];
-      } else {
-        // notify remaining peer that one left
-        rooms[currentRoom].forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: "leave" }));
-          }
-        });
-      }
+    if (!currentRoom || !rooms[currentRoom]) return;
+    rooms[currentRoom] = rooms[currentRoom].filter((c) => c !== ws);
+    if (rooms[currentRoom].length === 0) {
+      delete rooms[currentRoom];
+    } else {
+      // notify remaining peer
+      rooms[currentRoom].forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: "leave" }));
+        }
+      });
     }
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () =>
-  console.log(`🚀 Server running on http://localhost:${PORT}`)
-);
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -1,16 +1,16 @@
 {
-  "name": "webrtc-zoom-upgraded",
+  "name": "webrtc-p2p-app",
   "version": "1.0.0",
-  "description": "Interactive P2P video call app with modern features",
+  "description": "P2P WebRTC 1:1 video call sample",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "engines": {
-    "node": ">=16"
-  },
   "dependencies": {
     "express": "^4.18.2",
     "ws": "^8.13.0"
+  },
+  "engines": {
+    "node": ">=16"
   }
 }
