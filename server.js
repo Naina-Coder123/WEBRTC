@@ -1,66 +1,43 @@
+// server.js
 const express = require("express");
 const http = require("http");
-const WebSocket = require("ws");
 const path = require("path");
+const WebSocket = require("ws");
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+// ✅ Serve static files from Public folder
 app.use(express.static(path.join(__dirname, "Public")));
 
-const rooms = {};
+// ✅ Route to serve index.html explicitly
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "Public", "index.html"));
+});
 
-wss.on("connection", ws => {
-  let currentRoom = null;
+// ✅ WebSocket setup
+wss.on("connection", (ws) => {
+  console.log("🔗 New WebSocket connection");
 
-  ws.on("message", msg => {
-    const data = JSON.parse(msg);
+  ws.on("message", (message) => {
+    console.log("📩 Received:", message.toString());
 
-    if (data.type === "join") {
-      const roomId = data.room;
-      currentRoom = roomId;
-
-      if (!rooms[roomId]) rooms[roomId] = [];
-      if (rooms[roomId].length >= 2) {
-        ws.send(JSON.stringify({ type: "full" }));
-        return;
+    // Broadcast to all connected clients
+    wss.clients.forEach((client) => {
+      if (client !== ws && client.readyState === WebSocket.OPEN) {
+        client.send(message.toString());
       }
-
-      rooms[roomId].push(ws);
-
-      // Notify other participant
-      rooms[roomId].forEach(client => {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ type: "join" }));
-        }
-      });
-      return;
-    }
-
-    // Relay signaling
-    if (currentRoom && rooms[currentRoom]) {
-      rooms[currentRoom].forEach(client => {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(data));
-        }
-      });
-    }
+    });
   });
 
   ws.on("close", () => {
-    if (currentRoom && rooms[currentRoom]) {
-      rooms[currentRoom] = rooms[currentRoom].filter(c => c !== ws);
-      if (rooms[currentRoom].length === 0) delete rooms[currentRoom];
-
-      rooms[currentRoom]?.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ type: "leave" }));
-        }
-      });
-    }
+    console.log("❌ WebSocket connection closed");
   });
 });
 
+// ✅ Use Render/Heroku PORT or default 3000
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});

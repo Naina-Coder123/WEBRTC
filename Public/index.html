@@ -45,3 +45,50 @@
 <script src="script.js"></script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebRTC P2P App</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Join Screen -->
+<div id="join-screen">
+  <h1>🏠 Home</h1>
+  <p class="subtitle">Enter a Room ID or leave blank to generate one</p>
+  <input type="text" id="room-id-input" placeholder="Room ID" />
+  <div class="join-actions">
+    <button id="join-btn">Join Meeting</button>
+    <button id="share-link-btn">🔗 Share Link</button>
+  </div>
+  <p class="info">Max 2 participants per room</p>
+  <button id="toggle-theme">🌙 Dark/Light Mode</button>
+</div>
+
+<!-- Meeting Screen -->
+<div id="meeting-screen" class="hidden">
+  <div class="video-grid" id="video-grid">
+    <video id="local-video" autoplay muted></video>
+    <video id="remote-video" autoplay></video>
+  </div>
+  <div class="controls">
+    <button id="toggle-video" title="Toggle Video">🎥</button>
+    <button id="toggle-audio" title="Toggle Audio">🎤</button>
+    <button id="toggle-record" title="Record Meeting">⏺</button>
+    <button id="pause-record" title="Pause Recording">⏸</button>
+    <button id="end-call" title="End Call">❌</button>
+    <span class="timer">⏱ <span id="timer">00:00</span></span>
+    <span class="status">Status: <span id="conn-status">Not Connected</span></span>
+  </div>
+
+  <!-- Audio notifications -->
+  <audio id="join-sound" src="join.mp3" preload="auto"></audio>
+  <audio id="leave-sound" src="leave.mp3" preload="auto"></audio>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
